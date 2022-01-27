@@ -8,55 +8,61 @@
 import SwiftUI
 
 struct GameView: View {
-  @State var game = newGame
+  @State var game = Game()
 
-  //TODO: Randomize game state
-  private static let selectedWord = "apple"
-  private static let totalAttempts = 5
-  private static var newGame: Game = { Game(selectedWord: selectedWord, totalAttempts: totalAttempts) }()
+  var keys = [
+    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+    ["z", "x", "c", "v", "b", "n", "m"]
+  ]
 
   var body: some View {
     VStack(spacing: 5) {
       header
-      Spacer()
-      game.state.endGameText
-        .font(.title)
-        .fontWeight(.bold)
-        .foregroundColor(game.state.endGameTextColor)
-      Spacer()
-      ForEach(0 ..< game.totalAttempts, id: \.self) { attempt in
-        HStack(spacing: 5) {
-          ForEach(0 ..< game.wordLength, id: \.self) { letter in
-            tile(game.letter(indexes: (attempt, letter)))
-          }
-        }
-      }
-      Spacer()
-      Text(game.selectedWord.uppercased())
-        .font(.title)
-        .fontWeight(.bold)
-        .foregroundColor(.white)
-        .opacity(game.state.selectedWordOpacity)
-      Spacer()
-      Rectangle()
-        .foregroundColor(Color(.darkGray))
-        .frame(height: 1)
+      topText
+      tiles
+      selectedWord
+      divider
       keyboard
-        .padding(.bottom, 10)
     }
     .padding(.horizontal)
     .background(Color.black.edgesIgnoringSafeArea(.all))
   }
+}
 
+private extension GameView {
   @ViewBuilder
   var header: some View {
     Text("Wordle")
       .font(.title)
       .fontWeight(.bold)
       .foregroundColor(.white)
+    divider
+  }
+
+  var divider: some View {
     Rectangle()
       .foregroundColor(Color(.darkGray))
       .frame(height: 1)
+  }
+
+  @ViewBuilder
+  var topText: some View {
+    Text("Streak: \(game.streak) | Score: \(game.score)")
+      .font(.title2)
+      .fontWeight(.bold)
+      .foregroundColor(.white)
+      .padding(.vertical, 5)
+  }
+
+  var tiles: some View {
+    ForEach(0 ..< game.totalAttempts, id: \.self) { attempt in
+      HStack(spacing: 5) {
+        ForEach(0 ..< game.wordLength, id: \.self) { letter in
+          tile(game.letter(indexes: (attempt, letter)))
+        }
+      }
+    }
   }
 
   func tile(_ letter: Letter?) -> some View {
@@ -78,6 +84,15 @@ struct GameView: View {
     .aspectRatio(1, contentMode: .fit)
   }
 
+  var selectedWord: some View {
+    Text(game.selectedWord.uppercased())
+      .font(.title)
+      .fontWeight(.bold)
+      .foregroundColor(.white)
+      .opacity(game.state.selectedWordOpacity)
+      .padding(.vertical, 5)
+  }
+
   @ViewBuilder
   var keyboardButtons: some View {
     if game.state != .InProgress {
@@ -90,7 +105,7 @@ struct GameView: View {
   var nextGameButton: some View {
     HStack {
       Button {
-        nextGame()
+        game.next()
       } label: {
         HStack {
           Spacer()
@@ -100,9 +115,9 @@ struct GameView: View {
             .foregroundColor(.white)
           Spacer()
         }
-        .frame(height: 50)
+        .frame(height: 40)
       }
-      .background(game.state.endGameTextColor)
+      .background(game.state == .Won ? .green : .red)
       .cornerRadius(10)
     }.padding(.vertical, 8)
   }
@@ -110,7 +125,7 @@ struct GameView: View {
   var wordButtons: some View {
     HStack(spacing: 15) {
       Button {
-        enter()
+        game.completeAttempt()
       } label: {
         HStack {
           Spacer()
@@ -119,12 +134,12 @@ struct GameView: View {
             .foregroundColor(.white)
           Spacer()
         }
-        .frame(height: 50)
+        .frame(height: 40)
       }
       .background(Color.green)
       .cornerRadius(10)
       Button {
-        backspace()
+        game.removeLetter()
       } label: {
         HStack {
           Spacer()
@@ -133,35 +148,29 @@ struct GameView: View {
             .foregroundColor(.white)
           Spacer()
         }
-        .frame(height: 50)
+        .frame(height: 40)
       }
       .background(Color.red)
       .cornerRadius(10)
     }.padding(.vertical, 8)
   }
 
-  var keyRows = [
-    ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-    ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-    ["z", "x", "c", "v", "b", "n", "m"]
-  ]
-
   var keyboard: some View {
     VStack(alignment: .center, spacing: 5) {
       keyboardButtons
-      ForEach(keyRows, id: \.self) { row in
+      ForEach(keys, id: \.self) { row in
         HStack(spacing: 5) {
           ForEach(row, id: \.self) { letter in
             key(letter)
           }
         }
       }
-    }
+    }.padding(.bottom, 10)
   }
 
   func key(_ letter: String) -> some View {
     Button {
-      letterTapped(letter)
+      game.enterLetter(letter)
     } label: {
       HStack {
         VStack {
@@ -179,48 +188,9 @@ struct GameView: View {
     .cornerRadius(5)
     .disabled(game.state.inputDisabled)
   }
-
-  func letterTapped(_ letter: String) {
-    if game.currentAttempt.letters.count < game.wordLength {
-      game.currentAttempt.letters.append(letter)
-    }
-  }
-
-  func enter() {
-    if game.attempts.count < game.totalAttempts &&
-        game.currentAttempt.letters.count == game.totalAttempts {
-      game.attempts.append(game.currentAttempt)
-      game.currentAttempt = Attempt()
-    }
-  }
-
-  func backspace() {
-    if !game.currentAttempt.letters.isEmpty {
-      game.currentAttempt.letters.removeLast()
-    }
-  }
-
-  func nextGame() {
-    game = Self.newGame
-  }
 }
 
 private extension Game.State {
-  var endGameText: Text {
-    switch self {
-    case .Won:
-      return Text("You Won")
-    case .Lost:
-      return Text("You Lost")
-    default:
-      return Text(" ")
-    }
-  }
-
-  var endGameTextColor: Color {
-    self == .Won ? .green : .red
-  }
-
   var selectedWordOpacity: CGFloat {
     self == .Lost ? 1 : 0
   }
@@ -246,7 +216,9 @@ private extension Letter.Position {
 
 private extension Optional where Wrapped == Letter {
   var tileborderColor: Color {
-    guard self != nil else {
+    guard let letter = self,
+          !letter.inCurrentAttempt
+    else {
       return Letter.Position.NotFound.color
     }
 
@@ -259,7 +231,7 @@ private extension Optional where Wrapped == Letter {
     }
 
     if letter.inCurrentAttempt {
-      return Letter.Position.NotFound.color
+      return .clear
     }
 
     return letter.position.color

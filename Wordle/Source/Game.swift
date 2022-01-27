@@ -9,10 +9,13 @@ import Foundation
 import SwiftUI
 
 struct Game {
-  var selectedWord: String
-  var totalAttempts: Int
+  var selectedWord = newWord
+  var totalAttempts = 6
   var attempts: [Attempt] = []
   var currentAttempt = Attempt()
+
+  var score = 0
+  var streak = 0
 
   var wordLength: Int {
     selectedWord.count
@@ -42,6 +45,51 @@ extension Game {
 }
 
 extension Game {
+  mutating func completeAttempt() {
+    guard attempts.count < totalAttempts &&
+            currentAttempt.letters.count == wordLength
+    else {
+      return
+    }
+
+    let currentAttemptCopy = currentAttempt
+    attempts.append(currentAttemptCopy)
+    currentAttempt = Attempt()
+    if state == .Won {
+      increaseScore()
+      streak += 1
+    }
+  }
+
+  mutating func enterLetter(_ letter: String) {
+    if currentAttempt.letters.count < wordLength {
+      currentAttempt.letters.append(letter)
+    }
+  }
+
+  mutating func removeLetter() {
+    if !currentAttempt.letters.isEmpty {
+      currentAttempt.letters.removeLast()
+    }
+  }
+
+  mutating func increaseScore() {
+    let multipler = 100
+    let baseScore = multipler * (totalAttempts + 1)
+    score += baseScore - (attempts.count * multipler)
+  }
+
+  mutating func next() {
+    attempts = []
+    currentAttempt = Attempt()
+    selectedWord = Self.newWord
+
+    if state == .Lost {
+      score = 0
+      streak = 0
+    }
+  }
+
   func letter(indexes: (attempt: Int, letter: Int)) -> Letter? {
     let previousAttempts = attempts
     var allAttempts = previousAttempts
@@ -80,6 +128,11 @@ extension Game {
 
 
 private extension Game {
+  static var newWord: String {
+    // TODO: build actual DB.
+    ["apple", "exile", "pizza", "bunks", "skunk", "whack", "munch", "first"].randomElement() ?? ""
+  }
+
   func correct(letter: String, index letterIndex: Int) -> Bool {
     let start = selectedWord.index(selectedWord.startIndex, offsetBy: letterIndex)
     let end = selectedWord.index(after: start)
