@@ -21,7 +21,7 @@ struct GameView: View {
       header
       topText
       tiles
-      selectedWord
+      bottomText
       divider
       keyboard
     }
@@ -84,13 +84,22 @@ private extension GameView {
     .aspectRatio(1, contentMode: .fit)
   }
 
-  var selectedWord: some View {
-    Text(game.selectedWord.uppercased())
-      .font(.title)
-      .fontWeight(.bold)
-      .foregroundColor(.white)
-      .opacity(game.state.selectedWordOpacity)
-      .padding(.vertical, 5)
+  @ViewBuilder
+  var bottomText: some View {
+    if let error = game.error {
+      Text(error.text)
+        .foregroundColor(.red)
+        .font(.title)
+        .fontWeight(.bold)
+        .padding(.vertical, 5)
+    } else {
+      Text(game.selectedWord.uppercased())
+        .foregroundColor(.white)
+        .font(.title)
+        .fontWeight(.bold)
+        .opacity(game.state.selectedWordOpacity)
+        .padding(.vertical, 5)
+    }
   }
 
   @ViewBuilder
@@ -125,7 +134,7 @@ private extension GameView {
   var wordButtons: some View {
     HStack(spacing: 15) {
       Button {
-        game.completeAttempt()
+        game.enterAttempt()
       } label: {
         HStack {
           Spacer()

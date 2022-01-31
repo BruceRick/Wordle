@@ -9,10 +9,12 @@ import Foundation
 import SwiftUI
 
 struct Game {
-  var selectedWord = newWord
+  var words = Words(length: 5)
   var totalAttempts = 6
   var attempts: [Attempt] = []
   var currentAttempt = Attempt()
+  var selectedWord: String
+  var error: WordError?
 
   var score = 0
   var streak = 0
@@ -23,7 +25,7 @@ struct Game {
 
   var state: State {
     let attemptCorrect = attempts.last?.word == selectedWord
-    let noAttemptsLeft = totalAttempts - attempts.count == 0
+    let noAttemptsLeft = attempts.count == totalAttempts
 
     switch (attemptCorrect, noAttemptsLeft) {
     case (true, _):
@@ -34,6 +36,10 @@ struct Game {
       return .InProgress
     }
   }
+
+  init() {
+    selectedWord = words.randomWord()
+  }
 }
 
 extension Game {
@@ -42,32 +48,43 @@ extension Game {
     case Won
     case Lost
   }
+
+  enum WordError {
+    case InvalidWord
+    case MissingCharacters
+
+    var text: String {
+      switch self {
+      case .InvalidWord:
+        return "Invalid Word"
+      case .MissingCharacters:
+        return "Missing Letters"
+      }
+    }
+  }
 }
 
 extension Game {
-  mutating func completeAttempt() {
-    guard attempts.count < totalAttempts &&
-            currentAttempt.letters.count == wordLength
-    else {
+  mutating func enterAttempt() {
+    guard state == .InProgress else {
       return
     }
-
-    let currentAttemptCopy = currentAttempt
-    attempts.append(currentAttemptCopy)
-    currentAttempt = Attempt()
-    if state == .Won {
-      increaseScore()
-      streak += 1
+    validateCurrentAttempt()
+    guard error == nil else {
+      return
     }
+    completeAttempt()
   }
 
   mutating func enterLetter(_ letter: String) {
+    error = nil
     if currentAttempt.letters.count < wordLength {
       currentAttempt.letters.append(letter)
     }
   }
 
   mutating func removeLetter() {
+    error = nil
     if !currentAttempt.letters.isEmpty {
       currentAttempt.letters.removeLast()
     }
@@ -80,14 +97,14 @@ extension Game {
   }
 
   mutating func next() {
-    attempts = []
-    currentAttempt = Attempt()
-    selectedWord = Self.newWord
-
     if state == .Lost {
       score = 0
       streak = 0
     }
+    
+    attempts = []
+    currentAttempt = Attempt()
+    selectedWord = words.randomWord()
   }
 
   func letter(indexes: (attempt: Int, letter: Int)) -> Letter? {
@@ -128,9 +145,25 @@ extension Game {
 
 
 private extension Game {
-  static var newWord: String {
-    // TODO: build actual DB.
-    ["apple", "exile", "pizza", "bunks", "skunk", "whack", "munch", "first"].randomElement() ?? ""
+  mutating func validateCurrentAttempt() {
+    let missingCharacters = currentAttempt.letters.count != wordLength
+    if missingCharacters {
+      error = .MissingCharacters
+    } else if !words.isValid(currentAttempt.word) {
+      error = .InvalidWord
+    } else {
+      error = nil
+    }
+  }
+
+  mutating func completeAttempt() {
+    let currentAttemptCopy = currentAttempt
+    attempts.append(currentAttemptCopy)
+    currentAttempt = Attempt()
+    if state == .Won {
+      increaseScore()
+      streak += 1
+    }
   }
 
   func correct(letter: String, index letterIndex: Int) -> Bool {
